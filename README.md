@@ -45,6 +45,20 @@ npm run build
 npm start
 ```
 
+## Project Control Room
+
+Use GitHub and Git as the control room for PetrolPumpOS.
+
+- `main` is the stable working version.
+- `dev` is the testing and integration version.
+- `feature/dashboard` is for dashboard work.
+- `feature/data-entry` is for pump data entry workflows.
+- `feature/forecasting` is for demand forecasting and AI planning.
+- Codex should work on one feature branch at a time.
+- Feature branches merge into `dev` after they work.
+- `dev` merges into `main` only after it is stable.
+- Never make risky or direct feature edits on `main`.
+
 ## Project Structure
 
 ```text
