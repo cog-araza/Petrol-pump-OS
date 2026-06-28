@@ -9,8 +9,9 @@
 :root { color-scheme: light; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: #fff; color: #0b1b2e; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: #eef3f1; color: #0b1b2e; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 a { text-decoration: none; }
+button, input, select, textarea { font: inherit; }
 
 ::selection { background: rgba(17, 185, 129, .22); color: #0b1b2e; }
 
