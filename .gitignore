@@ -1,0 +1,28 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/.next-webpack/
+/out/
+
+# production
+/build
+
+# local files
+.DS_Store
+*.pem
+.env*
+
+# debug
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+server.*.log
+
+# typescript
+*.tsbuildinfo
+
+# codex local workspace state
+/.agents/
