@@ -30,10 +30,16 @@ export const CAPABILITIES = {
   manageBranches: ["SuperAdmin", "Owner"],
   manageStaff: ["SuperAdmin", "Owner"],
   settings: ["SuperAdmin", "Owner"],
+  managePrices: ["SuperAdmin", "Owner", "Manager"],
   viewReports: ["SuperAdmin", "Owner", "Manager", "Cashier"],
   runReports: ["SuperAdmin", "Owner", "Manager"],
   salesEntry: ["SuperAdmin", "Owner", "Manager", "Cashier"],
   readings: ["SuperAdmin", "Owner", "Manager", "Cashier", "Filler"],
+  shifts: ["SuperAdmin", "Owner", "Manager"],
+  deliveries: ["SuperAdmin", "Owner", "Manager"],
+  expenses: ["SuperAdmin", "Owner", "Manager", "Cashier"],
+  mobilOil: ["SuperAdmin", "Owner", "Manager", "Cashier"],
+  credit: ["SuperAdmin", "Owner", "Manager", "Cashier"],
   allBranches: ["SuperAdmin", "Owner"],
 } as const satisfies Record<string, readonly Role[]>;
 
