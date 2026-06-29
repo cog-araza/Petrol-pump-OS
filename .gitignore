@@ -26,3 +26,9 @@ server.*.log
 
 # codex local workspace state
 /.agents/
+
+# prisma dev database
+/prisma/dev.db
+/prisma/dev.db-journal
+dev.db
+dev.db-journal
