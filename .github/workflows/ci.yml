@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: "file:./dev.db"
-      AUTH_SECRET: "ci-test-secret-not-used-in-production-0123456789"
     steps:
       - uses: actions/checkout@v4
+      - name: Generate throwaway AUTH_SECRET
+        run: echo "AUTH_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -14,8 +14,9 @@ export type TankLevel = {
 };
 
 /**
- * Current tank level = the latest physical dip's closing level when available,
- * otherwise reconstructed from signed stock moves off an empty tank.
+ * Current tank level = the latest physical dip's closing level plus any signed
+ * stock moves recorded after that dip (e.g. a delivery logged post-dip), or
+ * reconstructed purely from stock moves when no dip exists yet.
  */
 export async function getTankLevels(branchId: string): Promise<TankLevel[]> {
   const tanks = await prisma.tank.findMany({
@@ -32,7 +33,11 @@ export async function getTankLevels(branchId: string): Promise<TankLevel[]> {
     });
     let currentL: number;
     if (latestDip) {
-      currentL = latestDip.closingDip;
+      const movesAfter = await prisma.stockMove.findMany({
+        where: { branchId, tankId: tank.id, at: { gt: latestDip.createdAt } },
+      });
+      const delta = movesAfter.reduce((sum, m) => sum + m.litres, 0);
+      currentL = Math.min(tank.capacityL, Math.max(0, latestDip.closingDip + delta));
     } else {
       const moves = await prisma.stockMove.findMany({ where: { branchId, tankId: tank.id } });
       currentL = Math.max(0, moves.reduce((sum, m) => sum + m.litres, 0));

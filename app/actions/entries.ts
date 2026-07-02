@@ -9,6 +9,7 @@ import { asPaisa, toPaisa } from "@/lib/money";
 import { dipLitres, nozzleAmountPaisa, nozzleLitres } from "@/lib/domain/readings";
 import { mobilProfitPaisa, reconcileSales } from "@/lib/domain/sales";
 import { rateForProductOn } from "@/lib/domain/pricing";
+import { recomputeVariance } from "@/lib/queries/variance";
 import {
   creditSaleInput,
   deliveryInput,
@@ -88,15 +89,13 @@ export async function createNozzleReading(_prev: ActionState, formData: FormData
           date: d.date,
         },
       });
-      const tank = await tx.tank.findFirst({ where: { branchId, productId: nozzle.productId } });
-      if (tank) {
-        await tx.stockMove.create({
-          data: { branchId, tankId: tank.id, type: "SALE", litres: -litres, refId: reading.id },
-        });
-      }
+      await tx.stockMove.create({
+        data: { branchId, tankId: nozzle.tankId, type: "SALE", litres: -litres, refId: reading.id },
+      });
       return reading;
     });
 
+    await recomputeVariance(branchId, nozzle.tankId, d.date);
     await writeAudit({ session, action: "create", entity: "NozzleReading", entityId: row.id, branchId, after: row });
     revalidatePath("/nozzle-readings");
     revalidatePath("/inventory");
@@ -129,6 +128,7 @@ export async function createTankDip(_prev: ActionState, formData: FormData): Pro
         notes: d.notes || null,
       },
     });
+    await recomputeVariance(branchId, tank.id, d.date);
     await writeAudit({ session, action: "create", entity: "TankDip", entityId: row.id, branchId, after: row });
     revalidatePath("/tank-dips");
     revalidatePath("/inventory");
@@ -174,6 +174,7 @@ export async function createDelivery(_prev: ActionState, formData: FormData): Pr
       return delivery;
     });
 
+    await recomputeVariance(branchId, tank.id, d.date);
     await writeAudit({ session, action: "create", entity: "Delivery", entityId: row.id, branchId, after: row });
     revalidatePath("/fuel-deliveries");
     revalidatePath("/inventory");

@@ -24,17 +24,31 @@ function lastNDates(dates: string[], n: number): string[] {
   return Array.from(new Set(dates)).sort().slice(-n);
 }
 
-export async function getDashboard(branchId: string): Promise<DashboardData> {
-  const [sales, readings, mobil, tankLevels, varianceLogs] = await Promise.all([
-    prisma.salesEntry.findMany({ where: { branchId } }),
-    prisma.nozzleReading.findMany({ where: { branchId }, include: { product: true } }),
-    prisma.mobilOilSale.findMany({ where: { branchId } }),
-    getTankLevels(branchId),
-    prisma.varianceLog.findMany({ where: { branchId }, include: { tank: true }, orderBy: { date: "desc" } }),
-  ]);
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
-  const allDates = [...sales.map((s) => s.date), ...readings.map((r) => r.date)];
-  const latestDate = allDates.length ? allDates.sort().slice(-1)[0] : null;
+/** Days of history the dashboard loads; KPIs use the latest day, charts the last 7. */
+const DASHBOARD_WINDOW_DAYS = 30;
+
+export async function getDashboard(branchId: string): Promise<DashboardData> {
+  const [latestSale, latestReading] = await Promise.all([
+    prisma.salesEntry.findFirst({ where: { branchId }, orderBy: { date: "desc" }, select: { date: true } }),
+    prisma.nozzleReading.findFirst({ where: { branchId }, orderBy: { date: "desc" }, select: { date: true } }),
+  ]);
+  const latestDate =
+    [latestSale?.date, latestReading?.date].filter((d): d is string => Boolean(d)).sort().slice(-1)[0] ?? null;
+  const window = latestDate ? { date: { gte: addDaysIso(latestDate, -DASHBOARD_WINDOW_DAYS) } } : {};
+
+  const [sales, readings, mobil, tankLevels, varianceLogs] = await Promise.all([
+    prisma.salesEntry.findMany({ where: { branchId, ...window } }),
+    prisma.nozzleReading.findMany({ where: { branchId, ...window }, include: { product: true } }),
+    prisma.mobilOilSale.findMany({ where: { branchId, ...window } }),
+    getTankLevels(branchId),
+    prisma.varianceLog.findMany({ where: { branchId, ...window }, include: { tank: true }, orderBy: { date: "desc" } }),
+  ]);
 
   // ---- today KPIs --------------------------------------------------------
   const todaySales = sales.filter((s) => s.date === latestDate);

@@ -1,11 +1,11 @@
-import { formatPKR, toPaisa } from "@/lib/money";
-
 /**
- * @deprecated Operates on rupee floats. Prefer formatPKR(paisa) from lib/money.
- * Kept during the migration for client-side previews that compute in rupees.
+ * Format a rupee amount as "PKR 95,550" (same style as formatPKR, without a
+ * paisa round-trip). For DB values in paisa, prefer formatPKR from lib/money.
  */
-export function formatCurrency(value: number) {
-  return formatPKR(toPaisa(value));
+export function formatCurrency(rupees: number) {
+  const sign = rupees < 0 ? "-" : "";
+  const grouped = new Intl.NumberFormat("en-PK", { maximumFractionDigits: 0 }).format(Math.abs(Math.round(rupees)));
+  return `${sign}PKR ${grouped}`;
 }
 
 export function formatNumber(value: number) {

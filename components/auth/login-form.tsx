@@ -14,12 +14,12 @@ export function LoginForm() {
     <form action={formAction} className="space-y-4">
       <label className="block">
         <span className="text-sm font-bold">Email</span>
-        <input className={common} name="email" type="email" placeholder="owner@pgl.local" defaultValue="owner@pgl.local" />
+        <input className={common} name="email" type="email" placeholder="owner@pgl.local" />
         {state.errors?.email ? <span className="mt-1 block text-xs font-semibold text-red-600">{state.errors.email}</span> : null}
       </label>
       <label className="block">
         <span className="text-sm font-bold">Password</span>
-        <input className={common} name="password" type="password" placeholder="demo1234" defaultValue="demo1234" />
+        <input className={common} name="password" type="password" placeholder="••••••••" />
         {state.errors?.password ? <span className="mt-1 block text-xs font-semibold text-red-600">{state.errors.password}</span> : null}
       </label>
       {state.message ? (

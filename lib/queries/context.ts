@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getActiveBranchId, getSession, type SessionUser } from "@/lib/auth/session";
+import { getFreshSession } from "@/lib/auth/guard";
+import { getActiveBranchId, type SessionUser } from "@/lib/auth/session";
 
 export type BranchLite = { id: string; name: string; status: string };
 
@@ -17,7 +18,7 @@ export type ViewContext = {
  * callers can redirect to /login.
  */
 export async function getViewContext(): Promise<ViewContext | null> {
-  const session = await getSession();
+  const session = await getFreshSession();
   if (!session) return null;
 
   const branchId = await getActiveBranchId(session);

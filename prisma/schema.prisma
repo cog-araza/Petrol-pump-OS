@@ -72,6 +72,7 @@ model Tank {
   capacityL    Float
   safeLevelL   Float
   product      Product       @relation(fields: [productId], references: [id])
+  nozzles      Nozzle[]
   dips         TankDip[]
   deliveries   Delivery[]
   stockMoves   StockMove[]
@@ -90,9 +91,11 @@ model Nozzle {
   branchId    String
   dispenserId String
   productId   String
+  tankId      String // the physical tank this nozzle draws from
   label       String
   dispenser   Dispenser       @relation(fields: [dispenserId], references: [id])
   product     Product         @relation(fields: [productId], references: [id])
+  tank        Tank            @relation(fields: [tankId], references: [id])
   readings    NozzleReading[]
 }
 

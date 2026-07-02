@@ -115,7 +115,7 @@ async function main() {
     let n = 1;
     for (const nz of d.nozzles) {
       const created = await prisma.nozzle.create({
-        data: { branchId: main.id, dispenserId: disp.id, productId: nz.p, label: `Nozzle ${n}` },
+        data: { branchId: main.id, dispenserId: disp.id, productId: nz.p, tankId: nz.t, label: `Nozzle ${n}` },
       });
       nozzleRecords.push({ id: created.id, productId: nz.p, tankId: nz.t, meter: 100000 + Math.floor(rand() * 50000) });
       n++;
@@ -198,6 +198,15 @@ async function main() {
   let deliveryCounter = 7780;
   for (let di = 0; di < days.length; di++) {
     const date = days[di];
+
+    // Opening dip = the level at the very start of the day, before any deliveries,
+    // so book-vs-dip variance is expected = opening + deliveries - sold.
+    const openingDipByTank: Record<string, number> = {
+      [tank1.id]: dipLevel[tank1.id],
+      [tank2a.id]: dipLevel[tank2a.id],
+      [tank2b.id]: dipLevel[tank2b.id],
+      [tank3.id]: dipLevel[tank3.id],
+    };
 
     // Periodic deliveries to top up tanks before they run dry.
     const deliveriesToday: Record<string, number> = {};
@@ -303,10 +312,10 @@ async function main() {
 
     // ---- daily tank dips + variance log ----------------------------------
     for (const t of [tank1, tank2a, tank2b, tank3]) {
-      const openingDip = dipLevel[t.id];
+      const openingDip = openingDipByTank[t.id];
       const sold = soldByTank[t.id] ?? 0;
       const deliveries = deliveriesToday[t.id] ?? 0;
-      const expectedClosing = openingDip - sold; // deliveries already added into openingDip above
+      const expectedClosing = openingDip + deliveries - sold;
       // Seeded anomaly: Diesel (tank1) shrinkage on the most recent two days.
       const anomaly = t.id === tank1.id && di >= days.length - 2;
       const noisePct = anomaly ? -0.028 : (rand() * 2 - 1) * 0.004;

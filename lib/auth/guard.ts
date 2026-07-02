@@ -1,16 +1,33 @@
 import { CAPABILITIES, type Capability, type Role } from "@/lib/constants";
 import { getActiveBranchId, getSession, type SessionUser } from "@/lib/auth/session";
 import { AuthError, ForbiddenError } from "@/lib/auth/errors";
+import { prisma } from "@/lib/db";
 
 export { AuthError, ForbiddenError };
+
+/**
+ * The JWT carries branchIds from login time; re-read them (and the active flag)
+ * from the DB so admin-side access changes apply without waiting for re-login.
+ * Returns null when unauthenticated or the account has been deactivated.
+ */
+export async function getFreshSession(): Promise<SessionUser | null> {
+  const session = await getSession();
+  if (!session) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { active: true, branches: { select: { branchId: true } } },
+  });
+  if (!user?.active) return null;
+  return { ...session, branchIds: user.branches.map((b) => b.branchId) };
+}
 
 export function can(role: Role, capability: Capability): boolean {
   return (CAPABILITIES[capability] as readonly Role[]).includes(role);
 }
 
-/** Require a logged-in user; throws AuthError if not authenticated. */
+/** Require a logged-in, still-active user; throws AuthError otherwise. */
 export async function requireSession(): Promise<SessionUser> {
-  const session = await getSession();
+  const session = await getFreshSession();
   if (!session) throw new AuthError("Not authenticated");
   return session;
 }
