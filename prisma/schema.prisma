@@ -1,0 +1,298 @@
+// PetrolPumpOS data model.
+// Conventions:
+//  - Money is stored as integer paisa (see lib/money.ts). Never floats, never strings.
+//  - Every operational record carries a scalar `branchId` so queries are branch-scoped.
+//  - Enums are modelled as String (SQLite has no native enum); allowed values live in lib/validation.
+//  - Operational events (readings, dips, deliveries, sales, stock moves) are append-only.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Identity & access ----------------------------------------------------
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  role         String // SuperAdmin | Owner | Manager | Cashier | Filler
+  active       Boolean      @default(true)
+  branches     UserBranch[]
+  createdAt    DateTime     @default(now())
+}
+
+// Many-to-many: which branches a user may access. SuperAdmin/Owner may have all.
+model UserBranch {
+  userId   String
+  branchId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+}
+
+// ---- Reference data -------------------------------------------------------
+
+model Branch {
+  id                   String       @id @default(cuid())
+  name                 String
+  company              String
+  city                 String
+  managerName          String
+  status               String // Live | Setup
+  varianceTolerancePct Float        @default(1.0) // |variance%| above this is flagged
+  users                UserBranch[]
+  createdAt            DateTime     @default(now())
+}
+
+model Product {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  kind        String // FUEL | LUBE
+  active      Boolean        @default(true)
+  tanks       Tank[]
+  nozzles     Nozzle[]
+  fuelPrices  FuelPrice[]
+  deliveries  Delivery[]
+  creditSales CreditSale[]
+  readings    NozzleReading[]
+}
+
+model Tank {
+  id           String        @id @default(cuid())
+  branchId     String
+  name         String
+  productId    String
+  capacityL    Float
+  safeLevelL   Float
+  product      Product       @relation(fields: [productId], references: [id])
+  nozzles      Nozzle[]
+  dips         TankDip[]
+  deliveries   Delivery[]
+  stockMoves   StockMove[]
+  varianceLogs VarianceLog[]
+}
+
+model Dispenser {
+  id       String   @id @default(cuid())
+  branchId String
+  label    String
+  nozzles  Nozzle[]
+}
+
+model Nozzle {
+  id          String          @id @default(cuid())
+  branchId    String
+  dispenserId String
+  productId   String
+  tankId      String // the physical tank this nozzle draws from
+  label       String
+  dispenser   Dispenser       @relation(fields: [dispenserId], references: [id])
+  product     Product         @relation(fields: [productId], references: [id])
+  tank        Tank            @relation(fields: [tankId], references: [id])
+  readings    NozzleReading[]
+}
+
+model Staff {
+  id        String   @id @default(cuid())
+  branchId  String
+  name      String
+  role      String // Manager | Cashier | Filler | Guard
+  shiftSlot String // Shift 1 | Shift 2
+  phone     String
+  status    String // Present | Off Duty | Leave
+  createdAt DateTime @default(now())
+}
+
+// ---- Operational ledger (append-only) -------------------------------------
+
+model Shift {
+  id              String          @id @default(cuid())
+  branchId        String
+  date            String // ISO date (YYYY-MM-DD) in Asia/Karachi
+  shiftSlot       String
+  managerId       String?
+  cashierId       String?
+  fillers         String? // comma-separated staff names
+  guards          String?
+  openingCashPaisa Int            @default(0)
+  closingCashPaisa Int            @default(0)
+  notes           String?
+  readings        NozzleReading[]
+  dips            TankDip[]
+  sales           SalesEntry[]
+  createdAt       DateTime        @default(now())
+}
+
+model NozzleReading {
+  id          String   @id @default(cuid())
+  branchId    String
+  shiftId     String?
+  nozzleId    String
+  productId   String
+  opening     Float
+  closing     Float
+  litres      Float
+  ratePaisa   Int
+  amountPaisa Int
+  staffId     String?
+  date        String
+  nozzle      Nozzle   @relation(fields: [nozzleId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+  shift       Shift?   @relation(fields: [shiftId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model TankDip {
+  id         String   @id @default(cuid())
+  branchId   String
+  shiftId    String?
+  tankId     String
+  date       String
+  openingDip Float
+  closingDip Float
+  litres     Float // openingDip - closingDip (consumption per the dip stick)
+  notes      String?
+  tank       Tank     @relation(fields: [tankId], references: [id])
+  shift      Shift?   @relation(fields: [shiftId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Delivery {
+  id         String   @id @default(cuid())
+  branchId   String
+  date       String
+  supplier   String
+  productId  String
+  tankId     String
+  quantityL  Float
+  ratePaisa  Int
+  costPaisa  Int
+  invoice    String
+  vehicle    String?
+  notes      String?
+  product    Product  @relation(fields: [productId], references: [id])
+  tank       Tank     @relation(fields: [tankId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model SalesEntry {
+  id              String   @id @default(cuid())
+  branchId        String
+  shiftId         String?
+  date            String
+  cashPaisa       Int
+  cardPaisa       Int
+  creditPaisa     Int
+  totalPaisa      Int
+  cashInHandPaisa Int
+  diffPaisa       Int
+  shift           Shift?   @relation(fields: [shiftId], references: [id])
+  createdAt       DateTime @default(now())
+}
+
+model MobilOilSale {
+  id            String   @id @default(cuid())
+  branchId      String
+  date          String
+  productName   String
+  qty           Int
+  purchasePaisa Int
+  sellingPaisa  Int
+  profitPaisa   Int
+  staffId       String?
+  createdAt     DateTime @default(now())
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  branchId    String
+  date        String
+  category    String
+  amountPaisa Int
+  paidBy      String
+  description String
+  receiptUrl  String?
+  createdAt   DateTime @default(now())
+}
+
+model CreditCustomer {
+  id       String       @id @default(cuid())
+  branchId String
+  name     String
+  vehicle  String
+  sales    CreditSale[]
+}
+
+model CreditSale {
+  id          String         @id @default(cuid())
+  branchId    String
+  customerId  String
+  productId   String
+  litres      Float
+  amountPaisa Int
+  paidPaisa   Int            @default(0)
+  status      String // Due | Partial | Paid
+  dueDate     String
+  customer    CreditCustomer @relation(fields: [customerId], references: [id])
+  product     Product        @relation(fields: [productId], references: [id])
+  createdAt   DateTime       @default(now())
+}
+
+// ---- Inventory / variance engine ------------------------------------------
+
+model FuelPrice {
+  id            String   @id @default(cuid())
+  branchId      String
+  productId     String
+  ratePaisa     Int
+  effectiveFrom String // ISO date
+  product       Product  @relation(fields: [productId], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+model StockMove {
+  id        String   @id @default(cuid())
+  branchId  String
+  tankId    String
+  type      String // DELIVERY | SALE | ADJUST
+  litres    Float // signed: + for delivery, - for sale
+  refId     String?
+  at        DateTime @default(now())
+  tank      Tank     @relation(fields: [tankId], references: [id])
+}
+
+model VarianceLog {
+  id          String   @id @default(cuid())
+  branchId    String
+  tankId      String
+  date        String
+  expectedL   Float
+  actualL     Float
+  varianceL   Float
+  variancePct Float
+  flagged     Boolean
+  tank        Tank     @relation(fields: [tankId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// ---- Audit ----------------------------------------------------------------
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  userId   String?
+  userName String?
+  action   String
+  entity   String
+  entityId String?
+  branchId String?
+  before   String? // JSON
+  after    String? // JSON
+  at       DateTime @default(now())
+}
